@@ -1,0 +1,10 @@
+{
+  "name": "tv-home-module",
+  "version": "1.0.0",
+  "description": "A clean home screen for a Samsung TV, opened through TizenBrew.",
+  "packageType": "app",
+  "appName": "Home",
+  "appPath": "app/index.html",
+  "keys": ["ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue", "Info"],
+  "license": "MIT"
+}

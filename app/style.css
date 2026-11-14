@@ -1,0 +1,99 @@
+/* Written for the 2018 Samsung browser (Tizen 4, an older Chromium): flexbox with margins, no
+   "gap", no "inset", no backdrop-filter. The glass is faked with a blurred copy of the photo
+   (scene-night-glass.jpg) lined up behind each glass shape. Fixed 1920 x 1080 screen. */
+
+@font-face {
+  font-family: "Antonio"; font-weight: 300;
+  src: url(fonts/antonio-latin-300.woff2) format("woff2");
+}
+
+html, body {
+  margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hidden;
+  background: #120d18; color: #fff;
+  font-family: "SamsungOne", "Tizen Sans", "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.photo, .fg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+.shade { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0) 58%, rgba(0,0,0,.5) 100%); }
+/* after 9 pm and before 5 am everything dims a little */
+.late .photo, .late .fg, .late .gclock { -webkit-filter: brightness(.72); filter: brightness(.72); }
+
+/* ---- the glass clock: sits behind the peak (the .fg cut-out is drawn over it) ---- */
+.gclock {
+  position: absolute; left: 0; width: 1920px; top: 96px; text-align: center; white-space: nowrap;
+  font-family: "Antonio", "Arial Narrow", sans-serif; font-weight: 300; font-size: 320px;
+  line-height: .82; letter-spacing: -6px;
+  -webkit-filter: drop-shadow(0 8px 30px rgba(70,30,50,.38)); filter: drop-shadow(0 8px 30px rgba(70,30,50,.38));
+}
+.gclock span { display: block; }
+.gclock .fill {
+  padding: 80px 0; margin: -80px 0; color: transparent;
+  background-image: url(scene/scene-glass.jpg); background-size: 1920px 1080px; background-repeat: no-repeat;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-filter: brightness(1.04) saturate(1.25); filter: brightness(1.04) saturate(1.25); opacity: .94;
+}
+.gclock .sheen, .gclock .rim { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.gclock .sheen {
+  color: transparent; -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(160deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(255,255,255,.22) 100%);
+}
+.gclock .rim { color: rgba(255,200,215,.06); -webkit-text-stroke: 1.5px rgba(255,235,240,.75); }
+
+.date {
+  position: absolute; left: 0; width: 1920px; top: 44px; text-align: center;
+  font-size: 34px; line-height: 40px; font-weight: 500; color: rgba(255,232,238,.94);
+  text-shadow: 0 2px 18px rgba(60,20,40,.45);
+}
+
+/* ---- the app bar: one glass strip along the bottom ---- */
+.dock { position: absolute; left: 0; width: 1920px; top: 846px; text-align: center; }
+.bar {
+  display: inline-block; position: relative; padding: 18px 12px; border-radius: 34px; white-space: nowrap;
+  background-color: rgba(30,20,28,.35);
+  background-image: url(scene/scene-glass.jpg); background-size: 1920px 1080px; background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(255,210,220,.18), inset 0 1px 0 rgba(255,220,230,.16), 0 24px 60px rgba(0,0,0,.3);
+}
+.bar:before { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: 34px;
+  background: rgba(30,20,28,.38); }
+.tile {
+  position: relative; display: -webkit-inline-box; display: -webkit-inline-flex; display: inline-flex;
+  -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
+  vertical-align: middle; width: 116px; height: 116px; margin: 0 8px; box-sizing: border-box; padding: 0 8px;
+  border-radius: 26px; color: #fff; font-size: 20px; font-weight: 600; line-height: 25px; text-align: center;
+  white-space: normal; overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 8px 20px rgba(0,0,0,.25);
+  -webkit-transition: -webkit-transform .18s ease, box-shadow .18s ease; transition: transform .18s ease, box-shadow .18s ease;
+}
+.tile.logo { background-size: cover; background-position: center; }
+.tile.logo b, .tile.logo .sheen { display: none; }
+.tile .sheen { position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  background: linear-gradient(160deg, rgba(255,255,255,.25) 0%, rgba(255,255,255,0) 50%); }
+.tile b { position: relative; font-weight: 600; }
+.tile.focused { -webkit-transform: scale(1.14); transform: scale(1.14);
+  box-shadow: 0 0 0 4px rgba(255,255,255,.95), 0 16px 40px rgba(0,0,0,.45); }
+.tile.missing:after { content: ""; position: absolute; right: 9px; top: 9px; width: 10px; height: 10px;
+  border-radius: 5px; background: #ffd36b; box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+.focus-name { margin-top: 26px; font-size: 26px; font-weight: 600; color: rgba(255,255,255,.92);
+  text-shadow: 0 2px 12px rgba(0,0,0,.4); }
+
+/* ---- toast ---- */
+.toast { position: absolute; left: 50%; top: 700px; width: 900px; margin-left: -450px; text-align: center;
+  font-size: 28px; padding: 22px 30px; border-radius: 16px; background: rgba(20,14,22,.92);
+  box-shadow: 0 12px 40px rgba(0,0,0,.5); opacity: 0;
+  -webkit-transition: opacity .25s ease; transition: opacity .25s ease; }
+.toast.show { opacity: 1; }
+
+/* ---- app id list (INFO key) ---- */
+.info { display: none; position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; box-sizing: border-box;
+  padding: 110px 160px; background: #0d0a10; }
+.info.show { display: block; }
+.info h2 { margin: 0 0 10px; font-size: 44px; font-weight: 500; }
+.info p { font-size: 24px; opacity: .8; margin: 0 0 20px; }
+.info-list { height: 640px; overflow: hidden; font-size: 22px; line-height: 34px;
+  -webkit-column-count: 2; column-count: 2; -webkit-column-gap: 60px; column-gap: 60px; }
+.info-list div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info-list b { font-weight: 600; }
+.info-list i { font-style: normal; opacity: .6; }
+.info-foot { position: absolute; bottom: 90px; }

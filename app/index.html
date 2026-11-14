@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080">
+<title>Home</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- layers, back to front: photo, glass clock, the peak cut out of the photo, shade, everything else -->
+<img class="photo" src="scene/scene.jpg" alt="">
+<div id="clock" class="gclock"></div>
+<img class="fg" src="scene/scene-fg.webp" alt="">
+<div class="shade"></div>
+
+<div id="date" class="date">Saturday 14 November</div>
+
+<main class="dock">
+  <div id="tiles" class="bar"></div>
+  <div id="focusName" class="focus-name">Netflix</div>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<section id="info" class="info">
+  <h2>Apps on this TV</h2>
+  <p id="infoStatus"></p>
+  <div id="infoList" class="info-list"></div>
+  <p class="info-foot">Press INFO or BACK to close. Put a missing id into app/apps.js.</p>
+</section>
+
+<script src="apps.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
