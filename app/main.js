@@ -53,15 +53,73 @@
     b.style.backgroundPosition = -x + "px " + -y + "px";
   }
 
-  // ---- the TV's own app list (works only if the TV allows it from TizenBrew) ----
+  // ---- the TV's own app list ----
+  // Inside TizenBrew the page has no "tizen" object, so it talks to the TV the way a phone remote
+  // does: the TV's network remote (a websocket on port 8001) lists the installed apps and opens
+  // them, and the TV's REST call (POST /api/v2/applications/<id> on port 8001) opens an app too.
+  // The first time, the TV asks "Allow" for "TV Home": choose Allow.
+  var REMOTE = "ws://127.0.0.1:8001/api/v2/channels/samsung.remote.control?name=" + btoa("TV Home");
+  var ws = null, wsState = "not started", appTypes = {};
   function readInstalled(done) {
-    if (!hasTizen()) { installedError = "Not running on the TV (preview)."; return done(); }
+    if (hasTizen()) {
+      try {
+        tizen.application.getAppsInfo(function (list) {
+          installed = list.map(function (a) { return { id: a.id, name: a.name || "" }; });
+          done();
+        }, function (e) { installedError = (e && (e.name + ": " + e.message)) || "refused"; remote(done); });
+      } catch (e) { installedError = e.name ? e.name + ": " + e.message : String(e); remote(done); }
+      return;
+    }
+    var saved = null;
+    try { saved = JSON.parse(load("home.installed") || "null"); } catch (e) {}
+    if (saved && saved.length) { installed = saved; done(); }
+    remote(done);
+  }
+  function remote(done) {
+    if (typeof WebSocket === "undefined") { wsState = "no websocket"; return done(); }
+    try { ws = new WebSocket(REMOTE); } catch (e) { wsState = "could not start: " + e; return done(); }
+    wsState = "connecting";
+    var asked = setTimeout(function () { if (wsState === "connecting") { wsState = "waiting (press Allow on the TV if it asks)"; } }, 3000);
+    ws.onmessage = function (m) {
+      var j; try { j = JSON.parse(m.data); } catch (e) { return; }
+      if (j.event === "ms.channel.connect") {
+        wsState = "connected";
+        clearTimeout(asked);
+        ws.send(JSON.stringify({ method: "ms.channel.emit", params: { event: "ed.installedApp.get", to: "host" } }));
+      } else if (j.event === "ms.channel.unauthorized") {
+        wsState = "refused (the TV said Deny)";
+        toast("The TV refused the remote. Settings, General, External Device Manager, Device Connection Manager, Device List: allow TV Home.");
+      } else if (j.event === "ed.installedApp.get") {
+        var list = (j.data && j.data.data) || [];
+        if (list.length) {
+          installed = list.map(function (a) { appTypes[a.appId] = a.app_type; return { id: a.appId, name: a.name || "" }; });
+          installedError = "";
+          store("home.installed", JSON.stringify(installed));
+          done();
+        }
+      }
+    };
+    ws.onerror = function () { wsState = "could not connect"; done(); };
+    ws.onclose = function () { if (wsState === "connected") wsState = "closed"; ws = null; };
+  }
+  function wsLaunch(id) {
+    if (!ws || ws.readyState !== 1) return false;
+    ws.send(JSON.stringify({ method: "ms.channel.emit", params: { event: "ed.apps.launch", to: "host",
+      data: { appId: id, action_type: appTypes[id] === 2 ? "DEEP_LINK" : "NATIVE_LAUNCH" } } }));
+    return true;
+  }
+  // the TV's REST call: answers "true" when it opened the app. If the TV hides its answer from
+  // this page, cb gets null and the caller cannot tell; it then tries the next id as well.
+  function restLaunch(id, cb) {
+    var x = new XMLHttpRequest(), finished = false;
+    function end(v) { if (!finished) { finished = true; cb(v); } }
     try {
-      tizen.application.getAppsInfo(function (list) {
-        installed = list.map(function (a) { return { id: a.id, name: a.name || "" }; });
-        done();
-      }, function (e) { installedError = (e && (e.name + ": " + e.message)) || "refused"; done(); });
-    } catch (e) { installedError = e.name ? e.name + ": " + e.message : String(e); done(); }
+      x.open("POST", "http://127.0.0.1:8001/api/v2/applications/" + encodeURIComponent(id));
+      x.timeout = 4000;
+      x.onload = function () { end(x.status === 200 ? /true/.test(x.responseText || "") || null : false); };
+      x.onerror = x.ontimeout = function () { end(null); };
+      x.send();
+    } catch (e) { end(null); }
   }
 
   function candidates(app) {
@@ -129,14 +187,32 @@
   }
 
   function open(app) {
-    if (!hasTizen()) { toast("Preview only: on the TV this opens " + app.name + "."); return; }
     var ids = candidates(app);
     if (!ids.length) { toast(app.name + " has no app id yet. Press INFO to find it."); return; }
+    if (hasTizen()) {
+      (function attempt(i) {
+        if (i >= ids.length) { toast("Couldn't open " + app.name + ". Is it installed? Press INFO for ids."); return; }
+        try { tizen.application.launch(ids[i], function () {}, function () { attempt(i + 1); }); }
+        catch (e) { attempt(i + 1); }
+      })(0);
+      return;
+    }
+    if (location.protocol === "file:") { toast("Preview only: on the TV this opens " + app.name + "."); return; }
+    toast("Opening " + app.name + "…");
+    var onTv = installed && installed.filter(function (a) { return ids.indexOf(a.id) >= 0; })[0];
+    if (onTv && wsLaunch(onTv.id)) return;          // the TV listed it: open it by its own id
+    var unsure = false;
     (function attempt(i) {
-      if (i >= ids.length) { toast("Couldn't open " + app.name + ". Is it installed? Press INFO for ids."); return; }
-      try {
-        tizen.application.launch(ids[i], function () {}, function () { attempt(i + 1); });
-      } catch (e) { attempt(i + 1); }
+      if (i >= ids.length) {
+        if (!unsure) toast("Couldn't open " + app.name + ". Is it installed? Press INFO for ids.");
+        return;
+      }
+      restLaunch(ids[i], function (ok) {
+        if (ok === true) return;                    // opened
+        if (ok === null) unsure = true;             // the TV did not say: try the others too
+        wsLaunch(ids[i]);
+        attempt(i + 1);
+      });
     })(0);
   }
 
@@ -151,13 +227,13 @@
       lines.push("<b>" + esc(app.name) + "</b> <i>→ " + (c.length ? esc(c.join(", ")) : "no id") + "</i>");
     });
     if (installed) {
-      status.textContent = "The TV shared " + installed.length + " apps. Your tiles first, then everything installed (UP/DOWN to page).";
+      status.textContent = "The TV shared " + installed.length + " apps (remote: " + wsState + "). Your tiles first, then everything installed (UP/DOWN to page).";
       lines.push("&nbsp;");
       installed.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (a) {
         lines.push("<b>" + esc(a.name) + "</b> <i>" + esc(a.id) + "</i>");
       });
     } else {
-      status.textContent = "The TV did not share its app list (" + installedError + "). Only your tiles' ids are shown.";
+      status.textContent = "The TV did not share its app list (remote: " + wsState + (installedError ? "; " + installedError : "") + "). Only your tiles' ids are shown.";
     }
     infoLines = lines;
     var pages = Math.max(1, Math.ceil(lines.length / PER_PAGE));
@@ -201,7 +277,7 @@
   tick();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { shownTime = ""; tick(); });
   setInterval(tick, 10000);
-  readInstalled(markMissing);
+  readInstalled(function () { markMissing(); if (infoOpen) renderInfo(); });
   markMissing();
   if (param("info") === "1") toggleInfo(true);
 })();
